@@ -1366,8 +1366,9 @@ int ena_rx_xdp(struct ena_ring *rx_ring, struct xdp_buff *xdp, u16 descs,
  * kfunc (available in kernel 6.3+). The req_id stored in current_xdp_req_id
  * allows O(1) lookup of the rx_buffer_info containing the timestamp.
  */
-int ena_xdp_rx_timestamp(const struct xdp_buff *xdp, u64 *timestamp)
+int ena_xdp_rx_timestamp(const struct xdp_md *ctx, u64 *timestamp)
 {
+	const struct xdp_buff *xdp = (const struct xdp_buff *)ctx;
 	struct xdp_rxq_info *rxq = xdp->rxq;
 	struct ena_ring *rx_ring;
 	struct ena_rx_buffer *rx_info;
