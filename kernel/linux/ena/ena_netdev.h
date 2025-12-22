@@ -230,6 +230,10 @@ struct ena_rx_buffer {
 	 */
 	long pagecnt_bias;
 #endif /* ENA_PAGE_POOL_SUPPORT */
+#ifdef ENA_XDP_SUPPORT
+	/* Hardware timestamp for XDP metadata support */
+	u64 hw_timestamp;
+#endif /* ENA_XDP_SUPPORT */
 } ____cacheline_aligned;
 
 struct ena_stats_tx {
@@ -360,6 +364,10 @@ struct ena_ring {
 #ifdef ENA_AF_XDP_SUPPORT
 	struct xsk_buff_pool *xsk_pool;
 #endif /* ENA_AF_XDP_SUPPORT */
+	/* Current packet's req_id, valid during XDP program execution.
+	 * Used for O(1) lookup in ena_xdp_rx_timestamp().
+	 */
+	u16 current_xdp_req_id;
 #endif /* ENA_XDP_SUPPORT */
 
 	u16 next_to_use;

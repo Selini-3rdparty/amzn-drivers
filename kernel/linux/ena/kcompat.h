@@ -1090,6 +1090,13 @@ static inline void skb_metadata_set(struct sk_buff *skb, u8 meta_len) {}
 #define ENA_XDP_MEM_TYPE MEM_TYPE_PAGE_SHARED
 #endif /* ENA_PAGE_POOL_SUPPORT */
 
+/* XDP metadata ops for bpf_xdp_metadata_rx_timestamp() kfunc support
+ * Introduced in kernel 6.3
+ */
+#if defined(ENA_XDP_SUPPORT) && LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)
+#define ENA_HAVE_XDP_METADATA_OPS
+#endif /* ENA_XDP_SUPPORT && KERNEL >= 6.3 */
+
 #ifndef DEFINE_SHOW_ATTRIBUTE
 #define DEFINE_SHOW_ATTRIBUTE(__name)					\
 static int __name ## _open(struct inode *inode, struct file *file)	\
