@@ -64,7 +64,7 @@ struct sk_buff *ena_rx_skb_after_xdp_pass(struct ena_ring *rx_ring,
 					  int xdp_len);
 int ena_rx_xdp(struct ena_ring *rx_ring, struct xdp_buff *xdp, u16 descs,
 	       int *xdp_len, u8 *nr_frags, struct ena_com_rx_ctx *ena_rx_ctx);
-int ena_xdp_rx_timestamp(const struct xdp_buff *xdp, u64 *timestamp);
+int ena_xdp_rx_timestamp(const struct xdp_md *ctx, u64 *timestamp);
 #ifdef ENA_HAVE_XDP_METADATA_OPS
 extern const struct xdp_metadata_ops ena_xdp_metadata_ops;
 #endif /* ENA_HAVE_XDP_METADATA_OPS */
