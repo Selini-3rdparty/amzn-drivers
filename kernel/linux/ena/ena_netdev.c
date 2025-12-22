@@ -1651,7 +1651,8 @@ static int ena_clean_rx_irq(struct ena_ring *rx_ring, struct napi_struct *napi,
 			xdp_verdict = ena_rx_xdp(rx_ring, &xdp,
 						 ena_rx_ctx.descs,
 						 &xdp_len,
-						 &nr_frags);
+						 &nr_frags,
+						 &ena_rx_ctx);
 
 			if (xdp_verdict == ENA_XDP_PASS) {
 				skb = ena_rx_skb_after_xdp_pass(rx_ring, rx_info,
@@ -5594,6 +5595,9 @@ static int ena_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 			  adapter->max_num_io_queues);
 
 	netdev->netdev_ops = &ena_netdev_ops;
+#ifdef ENA_HAVE_XDP_METADATA_OPS
+	netdev->xdp_metadata_ops = &ena_xdp_metadata_ops;
+#endif /* ENA_HAVE_XDP_METADATA_OPS */
 #ifdef ENA_HAVE_NETDEV_QUEUE_STATS
 	netdev->stat_ops = &ena_stat_ops;
 #endif /* ENA_HAVE_NETDEV_QUEUE_STATS */

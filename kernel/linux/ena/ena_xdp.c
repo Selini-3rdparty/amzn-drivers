@@ -270,6 +270,7 @@ int ena_xdp_register_rxq_info(struct ena_ring *rx_ring)
 			  "Failed to register xdp rx queue info memory model. RX queue num %d rc: %d\n",
 			  rx_ring->qid, rc);
 		xdp_rxq_info_unreg(&rx_ring->xdp_rxq);
+		goto err;
 	}
 
 err:
@@ -987,6 +988,17 @@ static bool ena_xdp_clean_rx_irq_zc(struct ena_ring *rx_ring,
 		/* First descriptor might have an offset set by the device */
 		rx_info = &rx_ring->rx_buffer_info[ena_rx_ctx.ena_bufs[0].req_id];
 		xdp = rx_info->xdp;
+
+		/* Store hardware timestamp if available */
+		if (rx_ring->adapter->hw_ts_state.ts_cfg.rx_filter == HWTSTAMP_FILTER_ALL &&
+		    ena_com_is_extended_rx_cdesc(rx_ring->ena_com_io_cq))
+			rx_info->hw_timestamp = ena_rx_ctx.timestamp;
+		else
+			rx_info->hw_timestamp = 0;
+
+		/* Store req_id for O(1) lookup in ena_xdp_rx_timestamp() */
+		rx_ring->current_xdp_req_id = ena_rx_ctx.ena_bufs[0].req_id;
+
 		/* hard_data_start contains UMEM pool's headroom */
 		xdp->data = xdp->data_hard_start + XDP_PACKET_HEADROOM +
 			    ena_rx_ctx.pkt_offset;
@@ -1261,7 +1273,7 @@ static bool ena_xdp_prog_is_frags_supported(struct ena_ring *rx_ring)
 }
 
 int ena_rx_xdp(struct ena_ring *rx_ring, struct xdp_buff *xdp, u16 descs,
-	       int *xdp_len, u8 *nr_frags)
+	       int *xdp_len, u8 *nr_frags, struct ena_com_rx_ctx *ena_rx_ctx)
 {
 	struct ena_com_rx_buf_info *ena_bufs = rx_ring->ena_bufs;
 #ifdef ENA_XDP_MB_SUPPORT
@@ -1297,6 +1309,17 @@ int ena_rx_xdp(struct ena_ring *rx_ring, struct xdp_buff *xdp, u16 descs,
 		ena_reset_device(adapter, ENA_REGS_RESET_INV_RX_REQ_ID);
 		return ENA_XDP_DROP;
 	}
+
+	/* Store hardware timestamp if available */
+	if (ena_rx_ctx &&
+	    rx_ring->adapter->hw_ts_state.ts_cfg.rx_filter == HWTSTAMP_FILTER_ALL &&
+	    ena_com_is_extended_rx_cdesc(rx_ring->ena_com_io_cq))
+		rx_info->hw_timestamp = ena_rx_ctx->timestamp;
+	else
+		rx_info->hw_timestamp = 0;
+
+	/* Store req_id for O(1) lookup in ena_xdp_rx_timestamp() */
+	rx_ring->current_xdp_req_id = req_id;
 
 	*nr_frags = 0;
 
@@ -1337,4 +1360,40 @@ int ena_rx_xdp(struct ena_ring *rx_ring, struct xdp_buff *xdp, u16 descs,
 
 	return ret;
 }
+
+/* XDP metadata callback for retrieving hardware RX timestamp
+ * This function is called by the kernel's bpf_xdp_metadata_rx_timestamp
+ * kfunc (available in kernel 6.3+). The req_id stored in current_xdp_req_id
+ * allows O(1) lookup of the rx_buffer_info containing the timestamp.
+ */
+int ena_xdp_rx_timestamp(const struct xdp_buff *xdp, u64 *timestamp)
+{
+	struct xdp_rxq_info *rxq = xdp->rxq;
+	struct ena_ring *rx_ring;
+	struct ena_rx_buffer *rx_info;
+
+	if (!rxq || !timestamp)
+		return -EINVAL;
+
+	/* Get the ring from xdp_rxq_info */
+	rx_ring = container_of(rxq, struct ena_ring, xdp_rxq);
+
+	/* Check if hardware timestamping is enabled for RX */
+	if (rx_ring->adapter->hw_ts_state.ts_cfg.rx_filter != HWTSTAMP_FILTER_ALL)
+		return -EOPNOTSUPP;
+
+	/* O(1) lookup using the req_id stored during packet processing */
+	rx_info = &rx_ring->rx_buffer_info[rx_ring->current_xdp_req_id];
+	if (!rx_info || rx_info->hw_timestamp == 0)
+		return -ENODATA;
+
+	*timestamp = rx_info->hw_timestamp;
+	return 0;
+}
+
+#ifdef ENA_HAVE_XDP_METADATA_OPS
+const struct xdp_metadata_ops ena_xdp_metadata_ops = {
+	.xmo_rx_timestamp = ena_xdp_rx_timestamp,
+};
+#endif /* ENA_HAVE_XDP_METADATA_OPS */
 #endif /* ENA_XDP_SUPPORT */
