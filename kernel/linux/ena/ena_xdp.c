@@ -1053,6 +1053,8 @@ static bool ena_xdp_clean_rx_irq_zc(struct ena_ring *rx_ring,
 		ena_rx_checksum(rx_ring, &ena_rx_ctx, skb);
 		ena_set_rx_hash(rx_ring, &ena_rx_ctx, skb);
 		skb_record_rx_queue(skb, rx_ring->qid);
+		if (unlikely(rx_ring->adapter->hw_ts_state.ts_cfg.rx_filter == HWTSTAMP_FILTER_ALL))
+			skb_hwtstamps(skb)->hwtstamp = ns_to_ktime(ena_rx_ctx.timestamp);
 		napi_gro_receive(napi, skb);
 
 	} while (likely(work_done <= budget));
