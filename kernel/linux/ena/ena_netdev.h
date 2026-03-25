@@ -46,7 +46,7 @@
 #define DRV_MODULE_GENERATION \
 	__stringify(DRV_MODULE_GEN_MAJOR) "."	\
 	__stringify(DRV_MODULE_GEN_MINOR) "."	\
-	__stringify(DRV_MODULE_GEN_SUBMINOR) "g-selini"
+	__stringify(DRV_MODULE_GEN_SUBMINOR) "g-selini-20260325"
 #endif
 
 #define DEVICE_NAME	"Elastic Network Adapter (ENA)"
